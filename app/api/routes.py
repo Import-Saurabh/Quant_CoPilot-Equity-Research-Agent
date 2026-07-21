@@ -173,6 +173,28 @@ def ingest_stock(payload: StockRequest, request: Request):
 # POST — document ingestion
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.post(
+    "/ingest-docs",
+    response_model=DocIngestResponse,
+    tags=["pipeline"],
+    summary="Scrape Screener.in PDFs and upload to MinIO",
+)
+def ingest_docs(payload: DocRequest, request: Request):
+    logger.info("POST /ingest-docs symbol=%s", payload.symbol)
+    try:
+        result = execute_doc_pipeline(payload.symbol)
+        if result["status"] == "failed":
+            raise HTTPException(status_code=500, detail=result["message"])
+        return result
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Unexpected error in /ingest-docs for %s", payload.symbol)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {exc}")
+
+
 @router.get(
     "/stocks/{symbol}/documents",
     response_model=PdfDocumentsResponse,
